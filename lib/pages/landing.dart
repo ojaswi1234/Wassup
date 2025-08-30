@@ -37,7 +37,7 @@ class Landing extends StatelessWidget {
               ),
               const SizedBox(height: 30),
               const Text(
-                "ChatX",
+                "ConnectUs",
                 style: TextStyle(
                   color: kTextColor,
                   fontFamily: 'EduNSWACTCursive',

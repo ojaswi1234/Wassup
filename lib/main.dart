@@ -1,20 +1,25 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wassup/pages/auth/profile.dart';
-import 'package:wassup/pages/chat/chatArea.dart';
-import 'package:wassup/pages/home/home.dart';
-import 'package:wassup/pages/landing.dart';
-import 'package:wassup/pages/auth/login.dart';
-import 'package:wassup/pages/auth/register.dart';
-import 'package:wassup/pages/auth/loginPhone.dart';
-import 'package:wassup/pages/auth/registerPhone.dart';
+
+import 'package:ConnectUs/pages/auth/profile.dart';
+import 'package:ConnectUs/pages/chat/chatArea.dart';
+import 'package:ConnectUs/pages/config/settings.dart';
+import 'package:ConnectUs/pages/home/home.dart';
+import 'package:ConnectUs/pages/landing.dart';
+import 'package:ConnectUs/pages/auth/login.dart';
+import 'package:ConnectUs/pages/auth/register.dart';
+import 'package:ConnectUs/pages/auth/loginPhone.dart';
+import 'package:ConnectUs/pages/auth/registerPhone.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:ConnectUs/services/socketService.dart';
 
-
-
-
-Future <void> main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase with platform-specific options
+
+  
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -24,6 +29,10 @@ Future <void> main() async {
     url: 'https://hkxvlihyacqpfdviyycy.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhreHZsaWh5YWNxcGZkdml5eWN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4OTQxMzksImV4cCI6MjA3MTQ3MDEzOX0.vQDz72Zu6IVglI43t2VUTYVxzeMZbBPRki9zm4_VxF8',
   );
+
+  // Initialize socket service
+  SocketService().initializeSocket();
+
   runApp(const MainApp());
 }
 
@@ -32,21 +41,20 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-   
     return MaterialApp(
-    debugShowCheckedModeBanner: false,
-     initialRoute: '/',
-     routes: {
-       '/': (context) => const Landing(),
-       '/getStarted': (context) =>  Register(), // Example route for navigation
-       '/login': (context) => Login(),
-       '/home' : (context) => Home(),
-       '/chat' : (context) => ChatArea(),
-       '/registerPhone' : (context) => RegisterPhone(),
-       '/loginPhone' : (context) => LoginPhone(),
-       '/profile' : (context) => Profile(),
-     },
+      debugShowCheckedModeBanner: false,
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const Landing(),
+        '/getStarted': (context) => Register(),
+        '/login': (context) => Login(),
+        '/home': (context) => Home(),
+        '/chat': (context) => ChatArea(),
+        '/registerPhone': (context) => RegisterPhone(),
+        '/loginPhone': (context) => LoginPhone(),
+        '/profile': (context) => Profile(),
+        '/settings': (context) => Settings(),
+      },
     );
-  
   }
 }

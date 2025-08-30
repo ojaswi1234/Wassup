@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Theme colors
@@ -15,6 +16,8 @@ class Register extends StatelessWidget {
 
   String _email = '';
   String _password = '';
+  String _username = '';
+  String _phone = '';
   final width = WidgetsBinding.instance.window.physicalSize.width / WidgetsBinding.instance.window.devicePixelRatio;
 
   void _submitForm(BuildContext context) async {
@@ -26,9 +29,22 @@ class Register extends StatelessWidget {
           email: _email,
           password: _password,
         );
-        if (response.user != null && response.session != null) {
-          Navigator.pushNamed(context, '/home');
-        }
+        if (response.user != null) {
+          // Optionally, you can store additional user info in your database here
+          await supabase.from('users').insert({
+            'id': response.user!.id,
+            'usrname': _username,
+            'phone_number': _phone,
+           
+          });
+
+
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Registration successful!")),
+          );
+          Navigator.of(context).pushReplacementNamed('/home');
+        } 
       } catch (error) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Registration failed: $error")),
@@ -62,7 +78,16 @@ class Register extends StatelessWidget {
                   const SizedBox(height: 60),
                   MaterialButton(
                     onPressed: () {
-                      print("Pressed");
+                      showDialog( context: context, builder: (context) => AlertDialog(
+                        title: Text("Upload Your Profile Picture", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                        content: Container(alignment: Alignment.center, 
+                        child: Text("This Feature is in development....\n We believe in privacy")
+                       
+                        
+                        ),
+                      )
+                  );
+
                     },
                     child: const CircleAvatar(
                       radius: 50,
@@ -75,6 +100,87 @@ class Register extends StatelessWidget {
                   TextFormField(
                     style: TextStyle(color: kTextColor),
                     decoration: InputDecoration(
+                      prefixIcon: Icon(Icons.person, color: kAccentColor),
+                      labelText: "Username",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: kTextColor, width: 2.0),
+                      ),
+                      filled: true,
+                      fillColor: kBackgroundColor,
+                      contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
+                      errorStyle: TextStyle(color: Colors.redAccent),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: kAccentColor, width: 2.0),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: Colors.red, width: 2.0),
+                      ),
+                      labelStyle: TextStyle(color: kAccentColor, fontSize: 16.0),
+                    ),
+                    keyboardType: TextInputType.text,
+                    validator: (value) {
+                      if (value!.isEmpty) {
+                        return 'Please enter your username';
+                      }
+                      return null;
+                    },
+                    onSaved: (value) {
+                      _username = value!;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                  
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+
+                    ],
+                    style: TextStyle(color: kTextColor),
+                    decoration: InputDecoration(
+                      prefixIcon: Icon(Icons.phone, color: kAccentColor),
+                      prefix: SizedBox(
+                        width: 70,
+                        child: Text("+91", style: TextStyle(color: kAccentColor, fontWeight: FontWeight.bold), textAlign: TextAlign.center, maxLines: 10,),                          
+                      ),
+                      labelText: "Phone Number",
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: kTextColor, width: 2.0),
+                      ),
+                      filled: true,
+                      fillColor: kBackgroundColor,
+                      contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
+                      errorStyle: TextStyle(color: Colors.redAccent),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: kAccentColor, width: 2.0),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: Colors.red, width: 2.0),
+                      ),
+                      labelStyle: TextStyle(color: kAccentColor, fontSize: 16.0),
+                    ),
+                    keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      if (value!.isEmpty) {
+                        return 'Please enter your phone number';
+                      }
+                      return null;
+                    },
+                    onSaved: (value) {
+                      _phone = value!;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    style: TextStyle(color: kTextColor),
+                    decoration: InputDecoration(
+                      prefixIcon: Icon(Icons.email, color: kAccentColor),
                       labelText: "Email",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.0),
@@ -107,8 +213,10 @@ class Register extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
+
                     style: TextStyle(color: kTextColor),
                     decoration: InputDecoration(
+                      prefixIcon: Icon(Icons.lock, color: kAccentColor),
                       labelText: "Password",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.0),
@@ -162,17 +270,7 @@ class Register extends StatelessWidget {
                     child: Text("Already have an account? Click here to login", style: TextStyle(color: kTextColor)),
                   ),
                   const SizedBox(height: 20),
-                 /* MaterialButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacementNamed('/registerPhone');
-                    },
-                    color: kSecondaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                    padding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
-                    child: Text("Use Phone Number Instead", style: TextStyle(color: kBackgroundColor, fontSize: 16)),
-                  )*/
+                 
                 ],
               ),
             ),

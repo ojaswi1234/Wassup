@@ -76,8 +76,13 @@ class Login extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
+
+                    
                     style: TextStyle(color: kTextColor),
+
                     decoration: InputDecoration(
+                      
+                      prefixIcon: Icon(Icons.email, color: kAccentColor),
                       labelText: "Email",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.0),
@@ -112,11 +117,15 @@ class Login extends StatelessWidget {
                   TextFormField(
                     style: TextStyle(color: kTextColor),
                     decoration: InputDecoration(
+                      prefixIcon: Icon(Icons.lock, color: kAccentColor),
+          
                       labelText: "Password",
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.0),
+
                         borderSide: BorderSide(color: kTextColor, width: 2.0),
                       ),
+                      
                       filled: true,
                       fillColor: kBackgroundColor,
                       contentPadding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 12.0),
