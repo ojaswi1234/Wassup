@@ -1,7 +1,8 @@
-import 'package:ConnectUs/pages/home/status.dart';
+import 'status.dart';
 import 'package:flutter/material.dart';
 import 'package:ConnectUs/pages/home/home_page.dart';
 import 'package:ConnectUs/pages/home/community.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -59,11 +60,18 @@ class _HomeState extends State<Home> {
                PopupMenuItem(
                 value: 'logout',
                 child: Text('Logout', style: TextStyle(color: Color(0xFFFFD54F))),
-                onTap: () {
-                  // Add your logout logic here
-                  // For example, navigate to the login screen
-                  Navigator.pushReplacementNamed(context, '/login');
-                }
+                onTap: () async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logout failed: $e'), backgroundColor: Colors.red),
+      );
+    }
+  },
                ),
             ],
           ),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "839472434484",
+    "project_id": "wassup-chat-fda4a",
+    "storage_bucket": "wassup-chat-fda4a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:839472434484:android:5a66ab7cb7c1922081e961",
+        "android_client_info": {
+          "package_name": "com.example.wassup"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3o_6LT9fEjwYsNoleq-orLi-R2_vqtXg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -24,10 +24,11 @@ class _ChatAreaState extends State<ChatArea> {
   TextEditingController controller = TextEditingController();
   List<Chat> sendmessages = [];
 
-  String statusColor = "gray";
+  String statusColor = "red";
   String userStatus = "Offline";
   String userName = "";
 
+  
   @override
   void initState() {
     super.initState();
@@ -75,16 +76,28 @@ class _ChatAreaState extends State<ChatArea> {
     });
   }
 
+  
+  bool isSender(){
+    return sendmessages.last.senderId == socket?.id;
+  }
+
   void sendChat() {
     if (controller.text.isNotEmpty) {
+      
+      
       final chat = Chat(
         message: controller.text,
         timestamp: DateTime.now(),
+        senderId: socket?.id ?? 'unknown',
       );
+
+
       socket?.emit('message', {
         'room': roomId,
         'message': chat.toJSON()
+        
       });
+      
       controller.clear();
     }
   }
@@ -103,12 +116,14 @@ class _ChatAreaState extends State<ChatArea> {
     }
   }
 
+  
+
+
   void refreshChat() async {
     socket?.emit('get_messages', {'room': roomId});
     socket?.once('messages', (data) {
-      final messages = (data as List).map((e) => Chat.fromJSON(e)).toList();
       setState(() {
-        sendmessages = messages;
+        sendmessages = (data as List).map((e) => Chat.fromJSON(e)).toList();
       });
     });
   }
@@ -287,15 +302,22 @@ class _ChatAreaState extends State<ChatArea> {
                   itemCount: sendmessages.length,
                   itemBuilder: (context, index) {
                     final message = sendmessages[index];
-                    return Container(
+                    return ConstrainedBox(constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.4,
+                    ),
+                    child: Container(
+                      alignment: (isSender() ? Alignment.centerRight : Alignment.centerLeft),
                       margin: const EdgeInsets.symmetric(vertical: 4.0),
+                      
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
+                            
+                            
                             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                             decoration: BoxDecoration(
-                              color: kPrimaryColor,
+                              color: (!isSender() ? kPrimaryColor : Colors.grey[800]),
                               borderRadius: BorderRadius.circular(12.0),
                             ),
                             child: Column(
@@ -309,6 +331,7 @@ class _ChatAreaState extends State<ChatArea> {
                                   widthFactor: 4.0,
                                   alignment: Alignment.bottomRight,
                                   child: Icon(Icons.check, color: Colors.white, size: 14),
+                                  
                                 ),
                               ],
                             ),
@@ -320,6 +343,7 @@ class _ChatAreaState extends State<ChatArea> {
                           ),
                         ],
                       ),
+                    ),
                     );
                   },
                 ),
@@ -403,20 +427,24 @@ class _ChatAreaState extends State<ChatArea> {
 class Chat {
   final String message;
   final DateTime timestamp;
+  final String senderId;
 
   Chat({
     required this.message,
     required this.timestamp,
+    required this.senderId,
   });
 
   factory Chat.fromJSON(Map<String, dynamic> json) => Chat(
     message: json['message'] as String,
     timestamp: DateTime.parse(json['timestamp'] as String),
+    senderId: json['senderId'] as String,
   );
 
   Map<String, dynamic> toJSON() => {
     'message': message,
     'timestamp': timestamp.toIso8601String(),
+    'senderId': senderId,
   };
 }
 

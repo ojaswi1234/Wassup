@@ -1,5 +1,6 @@
+import 'package:ConnectUs/services/AuthChecker.dart';
+import 'package:ConnectUs/services/session_manager.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 const kPrimaryColor = Color(0xFFA67B00); // Dark Yellow
 const kSecondaryColor = Color(0xFFFFC107); // Amber
@@ -7,38 +8,86 @@ const kBackgroundColor = Color(0xFF1E1E1E); // Dark Gray-Black
 const kAccentColor = Color(0xFFFFCA28); // Light Amber
 const kTextColor = Color(0xFFFFD54F); // Warm Yellow
 
-class Login extends StatelessWidget {
+class Login extends StatefulWidget {
   Login({super.key});
 
+  @override
+  State<Login> createState() => _LoginState();
+}
+
+class _LoginState extends State<Login> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   String _email = '';
   String _password = '';
+  bool _isLoading = false;
+  bool _rememberMe = false;
+
+  final _sessionManager = SessionManager();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastLoginEmail();
+  }
+
+  void _loadLastLoginEmail() async {
+    final lastEmail = await _sessionManager.getLastLoginEmail();
+    final rememberMe = await _sessionManager.getRememberMe();
+    setState(() {
+      _email = lastEmail ?? '';
+      _rememberMe = rememberMe;
+    });
+  }
+
   final width = WidgetsBinding.instance.window.physicalSize.width / WidgetsBinding.instance.window.devicePixelRatio;
 
-  void _validateUser(BuildContext context) async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      try {
-        final supabase = Supabase.instance.client;
-        final response = await supabase.auth.signInWithPassword(
-          email: _email,
-          password: _password,
-        );
-        if (response.user != null && response.session != null) {
-          Navigator.pushNamed(context, '/home');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Invalid email or password")),
-          );
-        }
-      } catch (error) {
+  // Update your existing Login class
+void _validateUser() async {
+  if (!_formKey.currentState!.validate()) {
+    return;
+  }
+  _formKey.currentState!.save();
+
+  try {
+    setState(() => _isLoading = true);
+    
+    // Use SessionManager for enhanced login with remember me
+    final response = await _sessionManager.signInWithEmailAndPassword(
+      email: _email.trim(),
+      password: _password.trim(),
+      rememberMe: _rememberMe,
+    );
+
+    if (response.session != null) {
+      print('✅ Login successful, session created');
+      
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Login failed: $error")),
+          const SnackBar(
+            content: Text('Login successful!'),
+            backgroundColor: Colors.green,
+          ),
         );
+        // Navigate to home page
+        Navigator.of(context).pushReplacementNamed('/home');
       }
     }
+  } catch (error) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login failed: ${error.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -76,8 +125,7 @@ class Login extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
-
-                    
+                    initialValue: _email,
                     style: TextStyle(color: kTextColor),
 
                     decoration: InputDecoration(
@@ -153,15 +201,40 @@ class Login extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Remember Me Checkbox
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _rememberMe,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            _rememberMe = value ?? false;
+                          });
+                        },
+                        activeColor: kSecondaryColor,
+                        checkColor: kBackgroundColor,
+                      ),
+                      Text(
+                        'Remember me',
+                        style: TextStyle(
+                          color: kTextColor,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kSecondaryColor,
                       padding: EdgeInsets.symmetric(vertical: 14.0, horizontal: 24.0),
                     ),
-                    onPressed: () {
-                      _validateUser(context);
+                    onPressed: _isLoading ? null : () {
+                      _validateUser();
                     },
-                    child: Text("Login", style: TextStyle(color: Color(0xFF1E1E1E), fontSize: 16)),
+                    child: _isLoading 
+                      ? CircularProgressIndicator(color: kBackgroundColor) 
+                      : Text("Login", style: TextStyle(color: Color(0xFF1E1E1E), fontSize: 16)),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
