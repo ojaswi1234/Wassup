@@ -1,6 +1,7 @@
 // main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:ConnectUs/services/AuthChecker.dart';
 import 'package:ConnectUs/pages/auth/profile.dart';
@@ -18,6 +19,10 @@ import 'package:ConnectUs/services/socketService.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Performance optimization: Enable GPU rendering
+  debugProfileBuildsEnabled = false;
+  debugProfilePaintsEnabled = false;
   
   // Initialize Firebase with platform-specific options
 
@@ -47,6 +52,19 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       initialRoute: '/',
+      // Performance optimizations
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          child: child!,
+        );
+      },
+      theme: ThemeData(
+        // Pre-cache theme data for better performance
+        useMaterial3: true,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
       routes: {
         '/': (context) => const AuthChecker(), // Use AuthChecker for session persistence
         '/landing': (context) => const Landing(),

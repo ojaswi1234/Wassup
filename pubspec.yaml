@@ -45,6 +45,7 @@ dependencies:
   socket_io_client: ^2.0.0
   logger: ^2.6.1
   image_picker: ^1.0.7
+  flutter_dotenv: ^6.0.0
   # Firebase packages for chat storage
 
 

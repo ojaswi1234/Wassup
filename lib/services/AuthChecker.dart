@@ -107,11 +107,11 @@ class _AuthCheckerState extends State<AuthChecker> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children:[
             Image(image: AssetImage('assets/images/logo.png'), height: 250, width: 250,),
-             const  SizedBox(height: 32,),
+             SizedBox(height: 32,),
             CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Colors.yellow),
             ),
-            const  SizedBox(height: 32,),
+            SizedBox(height: 32,),
         Text("Checking Authentication Please Wait.....", style: TextStyle(color: Colors.yellow)),
         ]
 

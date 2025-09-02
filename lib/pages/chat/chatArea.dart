@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:logger/logger.dart';
@@ -10,44 +11,62 @@ const kBackgroundColor = Color(0xFF1E1E1E); // Dark Gray-Black
 const kAccentColor = Color(0xFFFFCA28); // Light Amber
 const kTextColor = Color(0xFFFFD54F); // Warm Yellow
 
-bool isBlocked = false;
-
 class ChatArea extends StatefulWidget {
   const ChatArea({super.key});
 
   @override
   State<ChatArea> createState() => _ChatAreaState();
 }
-class _ChatAreaState extends State<ChatArea> {
+
+class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin {
   io.Socket? socket;
   
   TextEditingController controller = TextEditingController();
   List<Chat> sendmessages = [];
+  ScrollController _scrollController = ScrollController();
 
   String statusColor = "red";
   String userStatus = "Offline";
   String userName = "";
+  bool isBlocked = false;
+  
+  @override
+  bool get wantKeepAlive => true;
 
   
   @override
   void initState() {
     super.initState();
     _initializeSocketChat();
+    getDetails(); // Get user details
   }
 
   void _initializeSocketChat() {
-    socket = io.io('https://wassup-backend-5isl.onrender.com',
-      io.OptionBuilder()
-        .setTransports(['websocket']) // for Flutter or Dart VM
-        .enableAutoConnect()
-        .build(),
-    );
-    socket?.emit('join_room', roomId);
-    setupListeners();
+    try {
+      socket = io.io('https://wassup-backend-5isl.onrender.com',
+        io.OptionBuilder()
+          .setTransports(['websocket'])
+          .enableAutoConnect()
+          .enableReconnection()
+          .setReconnectionAttempts(5)
+          .setReconnectionDelay(1000)
+          .build(),
+      );
+      
+      socket?.emit('join_room', roomId);
+      setupListeners();
+      
+      Logger().i('Socket initialized for room: $roomId');
+    } catch (e) {
+      Logger().e('Socket initialization error: $e');
+    }
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    controller.dispose();
+    socket?.dispose();
     super.dispose();
   }
 
@@ -55,15 +74,47 @@ class _ChatAreaState extends State<ChatArea> {
     socket?.on('connect', (_) {
       Logger().i('socket connected');
       checkStatus();
+      // Request existing messages when connected
+      refreshChat();
     });
     socket?.on('disconnect', (_) {
       Logger().e('socket disconnected');
       checkStatus();
     });
     socket?.on('message', (data) {
-      setState(() {
-        sendmessages.add(Chat.fromJSON(data));
-      });
+      Logger().i('Received message: $data');
+      try {
+        final newMessage = Chat.fromJSON(data);
+        // Check if message is not from current user (to avoid duplicates)
+        if (newMessage.senderId != socket?.id) {
+          setState(() {
+            sendmessages.add(newMessage);
+          });
+          
+          // Auto-scroll to bottom when receiving
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                0.0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
+      } catch (e) {
+        Logger().e('Error parsing message: $e');
+      }
+    });
+    socket?.on('messages', (data) {
+      Logger().i('Received messages history: $data');
+      try {
+        setState(() {
+          sendmessages = (data as List).map((e) => Chat.fromJSON(e)).toList();
+        });
+      } catch (e) {
+        Logger().e('Error parsing messages history: $e');
+      }
     });
   }
 
@@ -83,22 +134,37 @@ class _ChatAreaState extends State<ChatArea> {
 
   void sendChat() {
     if (controller.text.isNotEmpty) {
-      
+      final messageText = controller.text.trim();
       
       final chat = Chat(
-        message: controller.text,
+        message: messageText,
         timestamp: DateTime.now(),
         senderId: socket?.id ?? 'unknown',
       );
 
+      // Add message to local list immediately for better UX
+      setState(() {
+        sendmessages.add(chat);
+      });
 
+      // Send message to server
       socket?.emit('message', {
         'room': roomId,
         'message': chat.toJSON()
-        
       });
       
       controller.clear();
+      
+      // Auto-scroll to bottom when sending
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     }
   }
 
@@ -120,12 +186,12 @@ class _ChatAreaState extends State<ChatArea> {
 
 
   void refreshChat() async {
-    socket?.emit('get_messages', {'room': roomId});
-    socket?.once('messages', (data) {
-      setState(() {
-        sendmessages = (data as List).map((e) => Chat.fromJSON(e)).toList();
-      });
-    });
+    if (socket?.connected == true) {
+      Logger().i('Requesting messages for room: $roomId');
+      socket?.emit('get_messages', {'room': roomId});
+    } else {
+      Logger().w('Socket not connected, cannot refresh chat');
+    }
   }
 
   final List<String> actionList = [
@@ -146,6 +212,7 @@ class _ChatAreaState extends State<ChatArea> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final double width = MediaQuery.of(context).size.width;
     return Scaffold(
       appBar: AppBar(
@@ -173,10 +240,37 @@ class _ChatAreaState extends State<ChatArea> {
         elevation: 7,
         shadowColor: kAccentColor,
         actions: [
-          IconButton(
-            icon: Icon(Icons.call, color: Colors.white),
-            onPressed: () {},
-          ),
+
+              PopupMenuButton<String>(
+                icon: Icon(Icons.voice_chat, color: Colors.white),
+                onSelected: (value) {
+                  if (value == 'video_call') {
+                    Logger().i('Video call not implemented yet.');
+                  }
+                  if (value == 'voice_call') {
+                    Logger().i('Voice call not implemented yet.');
+                  }
+                },
+                itemBuilder: (context) => <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'video_call',
+                    child: Row(children:[
+                      Icon(Icons.video_call),
+                      const SizedBox(width: 4),
+                       Text('Video (in developemnt)')]),
+                     
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'voice_call',
+                  child: Row(children:[
+                      Icon(Icons.call),
+                      const SizedBox(width: 4),
+                       Text('Voice (in development)')]),
+                     
+                  ),
+                  
+                ],
+              ),
           PopupMenuButton<String>(
             itemBuilder: (context) => <PopupMenuEntry<String>>[
               PopupMenuItem<String>(
@@ -208,7 +302,7 @@ class _ChatAreaState extends State<ChatArea> {
                   if (isBlocked) {
                     socket?.disconnect();
                     userStatus = "Blocked";
-                    statusColor = "cyan";
+                    statusColor = "red";
                   } else {
                     socket?.connect();
                     checkStatus();
@@ -291,59 +385,119 @@ class _ChatAreaState extends State<ChatArea> {
         color: kBackgroundColor,
         child: Column(
           children: [
+            // Connection status indicator (only show when offline)
+            if (userStatus != "Online")
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                color: statusColor == "red" ? Colors.red.withOpacity(0.8) : Colors.orange.withOpacity(0.8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      statusColor == "red" ? Icons.cloud_off : Icons.hourglass_empty,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      userStatus == "Offline" ? "Connecting..." : userStatus,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
             // Messages display area
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
                   refreshChat();
                 },
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: sendmessages.length,
+                child: sendmessages.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 64,
+                              color: kAccentColor.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              userStatus == "Online" 
+                                ? "No messages yet. Start the conversation!"
+                                : "Connecting to server...",
+                              style: TextStyle(
+                                color: kAccentColor.withOpacity(0.7),
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: sendmessages.length,
+                        reverse: true, // Show newest messages at bottom
                   itemBuilder: (context, index) {
-                    final message = sendmessages[index];
-                    return ConstrainedBox(constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.4,
-                    ),
-                    child: Container(
-                      alignment: (isSender() ? Alignment.centerRight : Alignment.centerLeft),
+                    // Reverse index for correct message order
+                    final message = sendmessages[sendmessages.length - 1 - index];
+                    final bool isMe = message.senderId == (socket?.id ?? 'unknown');
+                    
+                    return Container(
+                      alignment: (isMe ? Alignment.centerRight : Alignment.centerLeft),
                       margin: const EdgeInsets.symmetric(vertical: 4.0),
-                      
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            
-                            
-                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                            decoration: BoxDecoration(
-                              color: (!isSender() ? kPrimaryColor : Colors.grey[800]),
-                              borderRadius: BorderRadius.circular(12.0),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.75,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                              decoration: BoxDecoration(
+                                color: (isMe ? Colors.grey[800] : kPrimaryColor),
+                                borderRadius: BorderRadius.circular(12.0),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    message.message,
+                                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
+                                        style: TextStyle(
+                                          color: Colors.white70, 
+                                          fontSize: 12
+                                        ),
+                                      ),
+                                      if (isMe) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.check, 
+                                          color: userStatus == "Online" ? Colors.blue : Colors.white70, 
+                                          size: 14
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  message.message,
-                                  style: TextStyle(color: Colors.white, fontSize: 16),
-                                ),
-                                Align(
-                                  widthFactor: 4.0,
-                                  alignment: Alignment.bottomRight,
-                                  child: Icon(Icons.check, color: Colors.white, size: 14),
-                                  
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0') } am',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
                     );
                   },
                 ),
@@ -357,18 +511,24 @@ class _ChatAreaState extends State<ChatArea> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Form(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: kBackgroundColor,
+                        borderRadius: BorderRadius.circular(30.0),
+                        border: Border.all(color: kTextColor, width: 1.0),
+                      ),
                       child: TextFormField(
                         controller: controller,
-                        style: TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.white),
+                        maxLines: null, // Allow multiple lines
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
                         decoration: InputDecoration(
                           hintText: 'Type a message...',
-                          hintStyle: TextStyle(color: kAccentColor),
+                          hintStyle: TextStyle(color: kAccentColor.withOpacity(0.7)),
                           filled: false,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30.0),
-                            borderSide: BorderSide(color: kTextColor, width: 1.0),
-                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                           suffixIcon: PopupMenuButton<String>(
                             icon: Transform.rotate(
                               angle: 3.14 / 2,
@@ -385,6 +545,57 @@ class _ChatAreaState extends State<ChatArea> {
                                     Text(e, style: TextStyle(color: kTextColor)),
                                   ],
                                 ),
+
+                                onTap: () async {
+                                  // Handle action selection
+                                  try {
+                                    switch (e) {
+
+                                      case "Img":
+                                        final result = await FilePicker.platform.pickFiles(
+                                          type: FileType.image,
+                                        );
+                                      if (result != null && result.files.isNotEmpty) {
+                                        final file = result.files.first;
+                                        Logger().i('Selected image: ${file.name}, size: ${file.size} bytes');
+                                      } else {
+                                        Logger().w('No image selected');
+                                      }
+                                      break;
+                                    case "Voice":
+                                      final result = await FilePicker.platform.pickFiles(
+                                        type: FileType.audio,
+                                      );
+                                      if (result != null && result.files.isNotEmpty) {
+                                        final file = result.files.first;
+                                        Logger().i('Selected audio: ${file.name}, size: ${file.size} bytes');
+                                      } else {
+                                        Logger().w('No audio selected');
+                                      }
+                                      break;
+                                    case "Doc":
+                                      final result = await FilePicker.platform.pickFiles(
+                                        type: FileType.any,
+                                      );
+                                      if (result != null && result.files.isNotEmpty) {
+                                        final file = result.files.first;
+                                        Logger().i('Selected document: ${file.name}, size: ${file.size} bytes');
+                                      } else {
+                                        Logger().w('No document selected');
+                                      }
+                                      break;
+                                    case "Locate":
+                                      Logger().i('Location sharing not implemented yet.');
+                                      break;
+                                    case "Contact":
+                                      Logger().i('Contact sharing not implemented yet.');
+                                      break;
+                                  }
+                                  }catch(error){
+                                    Logger().e('Error selecting file: $error');
+                                  }
+                                },
+
                               );
                             }).toList(),
                             onSelected: (value) {
@@ -392,6 +603,11 @@ class _ChatAreaState extends State<ChatArea> {
                             },
                           ),
                         ),
+                        onFieldSubmitted: (value) {
+                          if (value.trim().isNotEmpty) {
+                            sendChat();
+                          }
+                        },
                       ),
                     ),
                   ),

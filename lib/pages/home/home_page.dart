@@ -1,10 +1,12 @@
 import 'dart:core';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ConnectUs/components/contactTile.dart';
 import 'package:ConnectUs/pages/contacts_page.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class Home_Page extends StatefulWidget {
   const Home_Page({super.key});
@@ -13,9 +15,11 @@ class Home_Page extends StatefulWidget {
   State<Home_Page> createState() => _Home_PageState();
 }
 
-class _Home_PageState extends State<Home_Page> {
+class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _searchController = TextEditingController();
+
+  IO.Socket? socket;
   
   List<Contact> _contacts = [];
   final List<Chats> _chats = [];
@@ -23,8 +27,20 @@ class _Home_PageState extends State<Home_Page> {
   bool _isLoading = false;
   List<Contact> _registeredContacts = [];
   List<Contact> _nonRegisteredContacts = [];
+  
+  // Performance optimization: Cache registered phone numbers
+  Set<String>? _cachedRegisteredNumbers;
+  Timer? _debounceTimer;
+  
+  @override
+  bool get wantKeepAlive => true; // Keep state alive when switching tabs
 
-  Future<List<String>> _fetchRegisteredPhoneNumbers() async {
+  Future<Set<String>> _fetchRegisteredPhoneNumbers() async {
+    // Return cached data if available
+    if (_cachedRegisteredNumbers != null) {
+      return _cachedRegisteredNumbers!;
+    }
+    
     try {
       print('Fetching registered phone numbers from Supabase...');
       final response = await Supabase.instance.client
@@ -36,36 +52,35 @@ class _Home_PageState extends State<Home_Page> {
       final phoneNumbers = (response as List)
           .map((row) => row['phone_number'] as String)
           .where((number) => number.isNotEmpty)
-          .toList();
+          .map((number) => _normalizePhoneNumber(number))
+          .where((number) => number.isNotEmpty)
+          .toSet();
 
+      // Cache the result
+      _cachedRegisteredNumbers = phoneNumbers;
       return phoneNumbers;
     } catch (e) {
       print('Error fetching registered phone numbers: $e');
-      return [];
+      return <String>{};
     }
   }
 
   Future<void> _categorizeContacts() async {
     final registeredNumbers = await _fetchRegisteredPhoneNumbers();
-    final allContacts = await FlutterContacts.getContacts(withProperties: true);
-
-    final normalizedRegisteredNumbers = registeredNumbers
-        .map((number) => _normalizePhoneNumber(number))
-        .where((number) => number.isNotEmpty)
-        .toSet();
 
     _registeredContacts = [];
     _nonRegisteredContacts = [];
 
-    for (final contact in allContacts) {
+    // Use more efficient processing
+    for (final contact in _contacts) {
       bool isRegistered = false;
       
       for (final phone in contact.phones) {
         final normalizedContactPhone = _normalizePhoneNumber(phone.number);
         
-        if (normalizedRegisteredNumbers.contains(normalizedContactPhone) ||
-            normalizedRegisteredNumbers.contains('91$normalizedContactPhone') ||
-            normalizedRegisteredNumbers.contains(normalizedContactPhone.substring(2))) {
+        if (registeredNumbers.contains(normalizedContactPhone) ||
+            registeredNumbers.contains('91$normalizedContactPhone') ||
+            (normalizedContactPhone.length > 2 && registeredNumbers.contains(normalizedContactPhone.substring(2)))) {
           isRegistered = true;
           break;
         }
@@ -169,10 +184,43 @@ class _Home_PageState extends State<Home_Page> {
     }
   }
 
+
+  Future<void> _refreshChatList() async {
+    socket?.emit('get_list', {});
+    socket?.once('list', (data) {
+      setState(() {
+      _chats.add(
+        Chats(
+          contactName: data['name'],
+          lastMessage: data['lastMessage'],
+        ),
+      );
+      });
+    });
+  }
+
   
+
+  void _onSearchChanged() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      // Implement search filtering here if needed
+      setState(() {
+        // Filter chats based on search query
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Container(
       color: const Color(0xFF1E1E1E),
       child: Stack(
@@ -186,6 +234,7 @@ class _Home_PageState extends State<Home_Page> {
                   child: TextFormField(
                     style: const TextStyle(color: Color(0xFFFFD54F)),
                     cursorColor: const Color(0xFFFFD54F),
+                    onChanged: (_) => _onSearchChanged(),
                     decoration: InputDecoration(
                       hintText: 'Search Name/Number.....',
                       hintStyle: const TextStyle(color: Color(0xFFFFCA28)),
@@ -210,27 +259,34 @@ class _Home_PageState extends State<Home_Page> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 30),
-                  child: ListView(
-                    children: _chats.isNotEmpty 
-                        ? _chats.map((chat) {
-                            return ContactTile(
-                              contactName: chat.contactName,
-                              lastMessage: chat.lastMessage,
-                            );
-                          }).toList()
-                        : [
-                            Center(
-                              heightFactor: 20,
-                              child: Text(
-                                'No chats available. Start a new chat!',
-                                style: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 16,
+                  child: RefreshIndicator(
+                    onRefresh: _refreshChatList,
+                    child: _chats.isNotEmpty 
+                        ? ListView.builder(
+                            itemCount: _chats.length,
+                            itemBuilder: (context, index) {
+                              final chat = _chats[index];
+                              return ContactTile(
+                                contactName: chat.contactName,
+                                lastMessage: chat.lastMessage,
+                              );
+                            },
+                          )
+                        : ListView(
+                            children: [
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                              Center(
+                                child: Text(
+                                  'No chats available. Start a new chat!',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 16,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
-                                textAlign: TextAlign.center,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                   ),
                 ),
               ),

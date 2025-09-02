@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:ConnectUs/pages/home/home_page.dart';
 import 'package:ConnectUs/pages/home/community.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -10,18 +11,27 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   int _selectedSection = 0;
+  late PageController _pageController;
+  
+  // Cache widgets to prevent unnecessary rebuilds
+  late final List<Widget> _pages = [
+    const Home_Page(),
+    const Status(),
+    const Community(),
+  ];
 
-  Widget _getBody() {
-    switch (_selectedSection) {
-      case 1:
-        return const Status();
-      case 2:
-        return const Community();
-      default:
-        return const Home_Page(); // Use your chat/contact page here
-    }
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -97,12 +107,22 @@ class _HomeState extends State<Home> {
         unselectedItemColor: Color(0xFFFFD54F),
         selectedItemColor: Color(0xFFA67B00),
         onTap: (index) {
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+          );
+        },
+      ),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) {
           setState(() {
             _selectedSection = index;
           });
         },
+        children: _pages,
       ),
-      body: _getBody(),
     );
   }
 }

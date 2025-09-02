@@ -176,7 +176,7 @@ class _ProfileState extends State<Profile> {
               const SizedBox(height: 30),
               
               // Logout Button
-              Container(
+              SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: _showLogoutDialog,

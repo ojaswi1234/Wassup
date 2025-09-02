@@ -9,7 +9,7 @@ const kAccentColor = Color(0xFFFFCA28); // Light Amber
 const kTextColor = Color(0xFFFFD54F); // Warm Yellow
 
 class Login extends StatefulWidget {
-  Login({super.key});
+  const Login({super.key});
 
   @override
   State<Login> createState() => _LoginState();
