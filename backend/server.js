@@ -8,7 +8,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 const roomMessages = new Map();
 
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+
   
   // Handle joining rooms
   socket.on('join_room', (roomId) => {
@@ -23,12 +23,12 @@ io.on('connection', (socket) => {
   
   // Handle messages
   socket.on('message', (data) => {
-    console.log('Message received:', data);
+    console.log('Message received Successfully');
     
     const { room, message } = data;
     
     if (!room || !message) {
-      console.error('Invalid message format:', data);
+      console.error('Invalid message format');
       return;
     }
     
@@ -40,7 +40,7 @@ io.on('connection', (socket) => {
     
     // Broadcast to room
     io.to(room).emit('message', message);
-    console.log(`Message sent to room ${room}:`, message);
+    console.log('Message sent to room');
   });
   
   // Handle getting messages for a room
@@ -54,7 +54,7 @@ io.on('connection', (socket) => {
   });
   
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    console.log('Client disconnected !!!!');
   });
   
   socket.on('isSeen', (data) => {

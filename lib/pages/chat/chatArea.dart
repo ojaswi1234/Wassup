@@ -1,5 +1,7 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:logger/logger.dart';
 
@@ -23,7 +25,7 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
   
   TextEditingController controller = TextEditingController();
   List<Chat> sendmessages = [];
-  ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController();
 
   String statusColor = "red";
   String userStatus = "Offline";
@@ -82,7 +84,7 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
       checkStatus();
     });
     socket?.on('message', (data) {
-      Logger().i('Received message: $data');
+      Logger().i('Received message successfully !!!');
       try {
         final newMessage = Chat.fromJSON(data);
         // Check if message is not from current user (to avoid duplicates)
@@ -447,7 +449,35 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
                     final message = sendmessages[sendmessages.length - 1 - index];
                     final bool isMe = message.senderId == (socket?.id ?? 'unknown');
                     
-                    return Container(
+                    return 
+                    GestureDetector(
+                      onLongPress: () {
+                        showMenu(context: context, items: [
+                          PopupMenuItem(
+                            value: 'copy',
+                            child: Text('Copy'),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ], position: RelativeRect.fromLTRB(100, 100, 0, 0)).then((value) {
+                          if (value == 'copy') {
+                            Clipboard.setData(ClipboardData(text: message.message));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Message copied to clipboard')),
+                            );
+                          } else if (value == 'delete') {
+                            setState(() {
+                              sendmessages.removeAt(sendmessages.length - 1 - index);
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Message deleted')),
+                            );
+                          }
+                        });
+                      },
+                    child: Container(
                       alignment: (isMe ? Alignment.centerRight : Alignment.centerLeft),
                       margin: const EdgeInsets.symmetric(vertical: 4.0),
                       child: ConstrainedBox(
@@ -498,6 +528,7 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
                           ],
                         ),
                       ),
+                    ),
                     );
                   },
                 ),

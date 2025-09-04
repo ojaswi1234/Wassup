@@ -294,10 +294,23 @@ class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixi
           ),
           Positioned(
             bottom: 10,
-            right: 30,
-            child: FloatingActionButton(
-              shape: const CircleBorder(
-                side: BorderSide(
+            right: 20,
+            child: Column(
+              children: [
+                MaterialButton(onPressed: (){}, 
+                padding: EdgeInsets.all(18),
+                
+                shape: const CircleBorder(
+                  side: BorderSide(
+                    color: Color(0xFFFFD54F),
+                  ),
+                ),
+               child: const Icon(Icons.assistant, size: 20, color: Color(0xFFFFD54F)),
+                ),
+                const SizedBox(height: 14),
+                FloatingActionButton(
+                  shape: const CircleBorder(
+                    side: BorderSide(
                   color: Color(0xFFFFD54F),
                 ),
               ),
@@ -306,7 +319,10 @@ class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixi
               child: const Icon(Icons.chat_bubble_outline_rounded,
                   color: Color(0xFF1E1E1E), size: 24),
             ),
-          ),
+              ],
+          )
+        
+          )
         ],
       ),
     );

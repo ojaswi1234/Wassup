@@ -1,4 +1,3 @@
-import 'package:ConnectUs/services/AuthChecker.dart';
 import 'package:ConnectUs/services/session_manager.dart';
 import 'package:flutter/material.dart';
 

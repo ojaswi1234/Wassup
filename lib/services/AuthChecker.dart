@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ConnectUs/pages/landing.dart';
-import 'package:ConnectUs/pages/home/home_page.dart';
 import 'session_manager.dart';
 
 class AuthChecker extends StatefulWidget {

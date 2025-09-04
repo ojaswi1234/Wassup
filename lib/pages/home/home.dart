@@ -1,8 +1,12 @@
+import 'package:ConnectUs/pages/chat/contactSelectionPage.dart';
+import 'package:image_picker/image_picker.dart';
+
 import 'status.dart';
 import 'package:flutter/material.dart';
 import 'package:ConnectUs/pages/home/home_page.dart';
 import 'package:ConnectUs/pages/home/community.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -34,6 +38,73 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
+  final ImagePicker _picker = ImagePicker();
+  File? _imageFile;
+
+  Future<void> _openingCamera() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.camera);
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+     
+    }
+      showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              // Display the captured image
+              if (_imageFile != null)
+                Image.file(
+                  _imageFile!,
+                  height: 200,
+                ),
+              // Buttons for Retake and Use Photo
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TextButton(
+                    child: const Text('Retake'),
+                    onPressed: () {
+                      // Close the current dialog
+                      Navigator.of(context).pop();
+                      // Re-open the camera
+                      _openingCamera();
+                    },
+                  ),
+                  TextButton(
+                    child: const Text('Use Photo'),
+                    onPressed: () {
+                      // Close the dialog before navigating
+                      Navigator.of(context).pop();
+
+                      // Navigate to the contact selection page, passing the image file
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ContactSelectionPage(
+                            imageFile: _imageFile!,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+     
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,6 +122,24 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         backgroundColor: Color(0xFFA67B00),
         elevation: 2,
         actions: [
+          MaterialButton(
+            minWidth: 52,
+            height: 52,
+            padding: const EdgeInsets.all(0),
+            shape: const CircleBorder(),
+            onPressed: () {
+              // Implement search functionality
+            },
+            child: const Icon(Icons.dark_mode, color: Colors.white),
+          ),
+          MaterialButton(
+            minWidth: 52,
+            height: 52,
+            padding: const EdgeInsets.all(0),
+            shape: const CircleBorder(),
+            onPressed: _openingCamera,
+            child: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+          ),
           PopupMenuButton(
             color: Colors.black,
             icon: const Icon(Icons.settings, color: Colors.white),
