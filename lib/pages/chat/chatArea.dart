@@ -1,5 +1,4 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -68,7 +67,15 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
   void dispose() {
     _scrollController.dispose();
     controller.dispose();
+
+    socket?.off('connect');
+    socket?.off('disconnect');
+    socket?.off('message');
+    socket?.off('messages');
+    socket?.off('user_details');
+    socket?.disconnect();
     socket?.dispose();
+
     super.dispose();
   }
 
@@ -132,6 +139,10 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
   
   bool isSender(){
     return sendmessages.last.senderId == socket?.id;
+  }
+
+  bool isBlockedByMe(){
+    return isBlocked;
   }
 
   void sendChat() {
@@ -242,8 +253,22 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
         elevation: 7,
         shadowColor: kAccentColor,
         actions: [
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.white),
+            onPressed: () {
 
-              PopupMenuButton<String>(
+              if(isBlockedByMe()){
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Unable to refresh. User is blocked.')),
+                );
+                return;
+              }
+              // Implement search functionality
+              socket?.connect();
+              checkStatus();
+            },
+          ),
+          PopupMenuButton<String>(
                 icon: Icon(Icons.voice_chat, color: Colors.white),
                 onSelected: (value) {
                   if (value == 'video_call') {
@@ -548,7 +573,8 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
                         borderRadius: BorderRadius.circular(30.0),
                         border: Border.all(color: kTextColor, width: 1.0),
                       ),
-                      child: TextFormField(
+
+                      child: (!isBlockedByMe()) ? TextFormField(
                         controller: controller,
                         style: const TextStyle(color: Colors.white),
                         maxLines: null, // Allow multiple lines
@@ -639,6 +665,12 @@ class _ChatAreaState extends State<ChatArea> with AutomaticKeepAliveClientMixin 
                             sendChat();
                           }
                         },
+                      ) : Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          'You have blocked this user. Unblock to send messages.',
+                          style: TextStyle(color: Colors.redAccent, fontStyle: FontStyle.italic),
+                        ),
                       ),
                     ),
                   ),

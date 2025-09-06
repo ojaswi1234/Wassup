@@ -1,4 +1,7 @@
 // main.dart
+import 'package:ConnectUs/models/contact.dart';
+import 'package:ConnectUs/pages/AI_page.dart';
+import 'package:ConnectUs/pages/home/about.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
@@ -14,12 +17,20 @@ import 'package:ConnectUs/pages/auth/register.dart';
 import 'package:ConnectUs/pages/auth/loginPhone.dart';
 import 'package:ConnectUs/pages/auth/registerPhone.dart';
 import 'package:ConnectUs/pages/contacts_page.dart';
+import 'package:hive_flutter/adapters.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ConnectUs/services/socketService.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  //adding Hive
+  await Hive.initFlutter();
+
+  Hive.registerAdapter(ContactAdapter());
+
+  await Hive.openBox<Contact>('contacts');
   // Performance optimization: Enable GPU rendering
   debugProfileBuildsEnabled = false;
   debugProfilePaintsEnabled = false;
@@ -46,7 +57,6 @@ Future<void> main() async {
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -83,6 +93,8 @@ class MainApp extends StatelessWidget {
         '/loginPhone': (context) => LoginPhone(),
         '/profile': (context) => Profile(),
         '/settings': (context) => Settings(),
+        '/ai': (context) => AI_Page(),
+        '/about': (context) => About(),
       },
     );
   }

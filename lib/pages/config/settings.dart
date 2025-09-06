@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 
-class Settings extends StatelessWidget {
+class Settings extends StatefulWidget {
   const Settings({super.key});
+
+  @override
+  State<Settings> createState() => _SettingsState();
+}
+
+class _SettingsState extends State<Settings> {
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -9,6 +17,9 @@ class Settings extends StatelessWidget {
     const primaryColor = Color(0xFFA67B00);
     const accentColor = Color(0xFFF5E6C0);
     const tileColor = Color(0xFF1E1E1E);
+
+
+  
 
     return Scaffold(
       backgroundColor: Color.fromARGB(255, 45, 45, 45),
@@ -53,9 +64,13 @@ class Settings extends StatelessWidget {
               _buildTile(
                 icon: Icons.info,
                 title: 'About',
-                onTap: () {},
+                onTap: () {
+                  Navigator.pushNamed(context, '/about');
+                },
                 primaryColor: primaryColor,
               ),
+            
+             
             ],
           ),
         ),

@@ -1,12 +1,15 @@
 import 'dart:core';
 import 'dart:async';
-
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ConnectUs/components/contactTile.dart';
 import 'package:ConnectUs/pages/contacts_page.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:ConnectUs/models/contact.dart' as HiveContact;
 
 class Home_Page extends StatefulWidget {
   const Home_Page({super.key});
@@ -18,12 +21,18 @@ class Home_Page extends StatefulWidget {
 class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _searchController = TextEditingController();
+  bool get isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+bool get isDesktop => kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   IO.Socket? socket;
+  Box<HiveContact.Contact>? contactBox;
   
   List<Contact> _contacts = [];
   final List<Chats> _chats = [];
- 
+
+
+
+
   bool _isLoading = false;
   List<Contact> _registeredContacts = [];
   List<Contact> _nonRegisteredContacts = [];
@@ -34,6 +43,47 @@ class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixi
   
   @override
   bool get wantKeepAlive => true; // Keep state alive when switching tabs
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeHive();
+    _loadContacts(); // Load from cache first!
+  }
+
+  void _initializeHive() {
+    try {
+      contactBox = Hive.box<HiveContact.Contact>('contacts');
+    } catch (e) {
+      print('Error accessing Hive box: $e');
+    }
+  }
+
+  Future<void> _loadContacts() async {
+    // First try to load from cache (fast)
+    if (contactBox != null && contactBox!.isNotEmpty) {
+      print('Loading contacts from cache...');
+      final hiveContacts = contactBox!.values.toList();
+      _contacts = hiveContacts.map((hiveContact) {
+        final contact = Contact();
+        final contactName = hiveContact.name.isNotEmpty ? hiveContact.name : 'Unknown Contact';
+        contact.name.first = contactName;
+        contact.displayName = contactName; // Set displayName for UI
+        contact.phones = [Phone(hiveContact.phoneNumber)];
+        return contact;
+      }).toList();
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      await _categorizeContacts();
+      return; // Exit early - no need to fetch from device
+    }
+    
+    // Only fetch from device if cache is empty
+    await _fetchContactsFromDevice();
+  }
 
   Future<Set<String>> _fetchRegisteredPhoneNumbers() async {
     // Return cached data if available
@@ -108,7 +158,8 @@ class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixi
     return normalized;
   }
 
-  Future<void> _fetchContacts() async {
+  Future<void> _fetchContactsFromDevice() async {
+    if(isMobile){    
     if (!await FlutterContacts.requestPermission()) {
       print("Permission Denied");
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,17 +178,45 @@ class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixi
         withProperties: true,
         withPhoto: false, // Avoid photos for performance
       );
-      _contacts = contacts;
+      
+      // Store in Hive for next time
+      if (contactBox != null) {
+        await contactBox!.clear(); // Clear old data
+        for (final contact in contacts) {
+          final hiveContact = HiveContact.Contact(
+            name: contact.displayName.isNotEmpty ? contact.displayName : 'Unknown Contact',
+            phoneNumber: contact.phones.isNotEmpty ? contact.phones.first.number : '',
+          );
+          await contactBox!.add(hiveContact); // Use add() instead of put()
+        }
+      }
+      
+      _contacts = contacts; // Use fresh data directly
       await _categorizeContacts();
     } finally {
       setState(() {
         _isLoading = false;
       });
     }
+    }
+    else if(isDesktop){
+      // Desktop contact fetching logic (if any)
+      print("Desktop platform detected - contact fetching not implemented.");
+      
+    }
+    else{
+      print("Web platform detected - contact fetching not implemented.");
+    }
+  }
+
+  // Legacy method - kept for backward compatibility but optimized
+  Future<void> _fetchContacts() async {
+    await _fetchContactsFromDevice();
   }
 
   void _createChatWithContact(Contact contact) {
     setState(() {
+
       _chats.add(Chats(contactName: contact.displayName, lastMessage: 'Click here to start chatting'));
     });
     Navigator.pushNamed(context, '/chat');
@@ -297,7 +376,9 @@ class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixi
             right: 20,
             child: Column(
               children: [
-                MaterialButton(onPressed: (){}, 
+                MaterialButton(onPressed: (){
+                  Navigator.pushNamed(context, '/ai');
+                }, 
                 padding: EdgeInsets.all(18),
                 
                 shape: const CircleBorder(
@@ -305,6 +386,7 @@ class _Home_PageState extends State<Home_Page> with AutomaticKeepAliveClientMixi
                     color: Color(0xFFFFD54F),
                   ),
                 ),
+
                child: const Icon(Icons.assistant, size: 20, color: Color(0xFFFFD54F)),
                 ),
                 const SizedBox(height: 14),

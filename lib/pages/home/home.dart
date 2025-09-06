@@ -16,6 +16,9 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
+
+   
+
   int _selectedSection = 0;
   late PageController _pageController;
   
@@ -42,6 +45,8 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   File? _imageFile;
 
   Future<void> _openingCamera() async {
+    if(Platform.isAndroid || Platform.isIOS){
+    if (!mounted) return;
     final pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
       setState(() {
@@ -101,7 +106,21 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
       );
     },
   );
-
+    } else {
+      // Handle non-mobile platforms if necessary
+     AlertDialog(
+        title: const Text('Camera Not Supported'),
+        content: const Text('Camera functionality is only available on mobile devices.'),
+        actions: <Widget>[
+          TextButton(
+            child: const Text('OK'),
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      );
+    }
      
   }
 
@@ -172,7 +191,9 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     }
   },
                ),
+               
             ],
+            
           ),
         ],
       ),
